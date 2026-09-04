@@ -22,6 +22,8 @@ install -o root -g root -m 0644 "$repo_dir/providers/well_status.py" \
     /usr/local/lib/tg-server-control/well_status.py
 install -o root -g root -m 0644 "$repo_dir/providers/nest_temperature.py" \
     /usr/local/lib/tg-server-control/nest_temperature.py
+install -o root -g root -m 0644 "$repo_dir/providers/nest_climate_status.py" \
+    /usr/local/lib/tg-server-control/nest_climate_status.py
 install -o root -g root -m 0755 "$repo_dir/status.d/"* \
     /etc/tg-server-control/status.d/
 install -o root -g root -m 0600 "$repo_dir/config/well.env" \

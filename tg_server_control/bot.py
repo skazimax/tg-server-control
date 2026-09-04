@@ -51,15 +51,14 @@ HELP_TEXT = """Управление домашним сервером
 
 
 RUMYANTSEVO_STATUS_PREFIX = """Румянцево"""
-RUMYANTSEVO_STATUS_SUFFIX = """🌡 Дом, 2 этаж: нет данных
-🌡 Улица: нет данных
+RUMYANTSEVO_STATUS_SUFFIX = """🌡 Улица: нет данных
 🌡 Колодец: нет данных"""
 
 
-def rumyantsevo_status_text(house_temperature: str, water_level: str) -> str:
+def rumyantsevo_status_text(house_climate: str, water_level: str) -> str:
     return (
         f"{RUMYANTSEVO_STATUS_PREFIX}\n\n"
-        f"{house_temperature}\n{RUMYANTSEVO_STATUS_SUFFIX}\n{water_level}"
+        f"{house_climate}\n{RUMYANTSEVO_STATUS_SUFFIX}\n{water_level}"
     )
 
 
@@ -236,11 +235,12 @@ class ControlBot:
             return
 
         if action == "rumyantsevo-status":
-            nest_result = self.helper_runner("nest-temperature")
-            house_temperature = (
+            nest_result = self.helper_runner("nest-climate-status")
+            house_climate = (
                 nest_result.output
                 if nest_result.ok
-                else "⚠️ Дом, 1 этаж: нет данных"
+                else "⚠️ Дом, 1 этаж: нет данных\n"
+                "⚠️ Дом, 2 этаж: нет данных"
             )
             result = self.helper_runner("well-level")
             water_level = (
@@ -250,7 +250,7 @@ class ControlBot:
             )
             self.send(
                 chat_id,
-                rumyantsevo_status_text(house_temperature, water_level),
+                rumyantsevo_status_text(house_climate, water_level),
                 reply_markup=rumyantsevo_keyboard(),
             )
             return

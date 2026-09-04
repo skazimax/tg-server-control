@@ -60,6 +60,21 @@ nest_temperature() {
         /usr/local/lib/tg-server-control/nest_temperature.py
 }
 
+nest_climate_status() {
+    local config=/etc/tg-server-control/well.env
+    if [[ ! -r "$config" ]]; then
+        printf '⚠️ Дом, 1 этаж: нет данных\n'
+        printf '⚠️ Дом, 2 этаж: нет данных\n'
+        return
+    fi
+    set -a
+    source "$config"
+    set +a
+    YDB_TABLE=nest_environment_readings \
+        /home/skazimax/git/tg-server-control/.venv/bin/python \
+        /usr/local/lib/tg-server-control/nest_climate_status.py
+}
+
 network_status() {
     run_status_provider "$status_dir/20-vpn"
     run_status_provider "$status_dir/30-rumyantsevo"
@@ -93,6 +108,7 @@ case "${1:-}" in
     water-weekly) water_run weekly ;;
     well-level) run_status_provider "$status_dir/40-well" level ;;
     nest-temperature) nest_temperature ;;
+    nest-climate-status) nest_climate_status ;;
     network-status) network_status ;;
     sstp-restart)
         systemctl restart egg-cam-sstp.service
