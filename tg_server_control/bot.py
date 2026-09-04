@@ -33,7 +33,7 @@ COMMANDS: dict[str, tuple[str | None, str]] = {
 }
 
 
-HELP_TEXT = """Управление сервером egg-cam
+HELP_TEXT = """Управление домашним сервером
 
 /status — состояние всех компонентов
 /egg_on — включить мониторинг яиц и автозапуск
@@ -99,7 +99,7 @@ class HelperResult:
 
 def run_helper(action: str, timeout: int = 180) -> HelperResult:
     helper = os.environ.get(
-        "EGG_CAM_CONTROL_HELPER", "/usr/local/sbin/tg-server-control"
+        "TG_SERVER_CONTROL_HELPER", "/usr/local/sbin/tg-server-control"
     )
     try:
         result = subprocess.run(
