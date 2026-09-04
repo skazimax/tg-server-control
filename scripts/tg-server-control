@@ -6,8 +6,9 @@ source /usr/local/lib/tg-server-control/status-common.sh
 
 run_status_provider() {
     local provider="$1"
+    shift
     if [[ -x "$provider" ]]; then
-        "$provider" || printf '❌ %s\n' "$(basename "$provider")"
+        "$provider" "$@" || printf '❌ %s\n' "$(basename "$provider")"
     fi
 }
 
@@ -77,6 +78,7 @@ case "${1:-}" in
     water-weekly-toggle) water_toggle weekly ;;
     water-daily) water_run daily ;;
     water-weekly) water_run weekly ;;
+    well-level) run_status_provider "$status_dir/40-well" level ;;
     network-status) network_status ;;
     sstp-restart)
         systemctl restart egg-cam-sstp.service

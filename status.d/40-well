@@ -4,5 +4,4 @@ set -a
 source /etc/tg-server-control/well.env
 set +a
 exec /home/skazimax/git/tg-server-control/.venv/bin/python \
-    /usr/local/lib/tg-server-control/well_status.py
-
+    /usr/local/lib/tg-server-control/well_status.py "${1:-}"

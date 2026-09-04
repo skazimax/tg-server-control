@@ -17,6 +17,7 @@ LOGGER = logging.getLogger(__name__)
 
 COMMANDS: dict[str, tuple[str | None, str]] = {
     "/status": ("status", "Статус"),
+    "/rumyantsevo": ("rumyantsevo-status", "Румянцево"),
     "/egg_on": ("egg-on", "Яйца: включение"),
     "/egg_off": ("egg-off", "Яйца: выключение"),
     "/egg_restart": ("egg-restart", "Яйца: перезапуск"),
@@ -36,6 +37,7 @@ COMMANDS: dict[str, tuple[str | None, str]] = {
 HELP_TEXT = """Управление домашним сервером
 
 /status — состояние всех компонентов
+/rumyantsevo — показатели дома в Румянцево
 /egg_on — включить мониторинг яиц и автозапуск
 /egg_off — остановить мониторинг яиц и отключить автозапуск
 /egg_restart — перезапустить мониторинг яиц
@@ -46,6 +48,18 @@ HELP_TEXT = """Управление домашним сервером
 /sstp_restart — переподключить Румянцево(SSTP)
 /adguard_restart — перезапустить AdGuard
 """
+
+
+RUMYANTSEVO_STATUS_PREFIX = """Румянцево
+
+🌡 Дом, 1 этаж: нет данных
+🌡 Дом, 2 этаж: нет данных
+🌡 Улица: нет данных
+🌡 Колодец: нет данных"""
+
+
+def rumyantsevo_status_text(water_level: str) -> str:
+    return f"{RUMYANTSEVO_STATUS_PREFIX}\n{water_level}"
 
 
 def parse_admin_user_ids(value: str | None) -> set[int]:
@@ -70,6 +84,7 @@ def command_keyboard() -> dict[str, Any]:
             ],
             [
                 {"text": "Отчёты колодца", "callback_data": "/water_status"},
+                {"text": "Румянцево", "callback_data": "/rumyantsevo"},
             ],
         ]
     }
@@ -86,6 +101,15 @@ def water_report_keyboard() -> dict[str, Any]:
                 {"text": "Отправить день", "callback_data": "/water_daily"},
                 {"text": "Отправить неделю", "callback_data": "/water_weekly"},
             ],
+            [{"text": "← Назад", "callback_data": "/status"}],
+        ]
+    }
+
+
+def rumyantsevo_keyboard() -> dict[str, Any]:
+    return {
+        "inline_keyboard": [
+            [{"text": "🔄 Обновить", "callback_data": "/rumyantsevo"}],
             [{"text": "← Назад", "callback_data": "/status"}],
         ]
     }
@@ -208,6 +232,20 @@ class ControlBot:
         action, label = COMMANDS[command]
         if action is None:
             self.send(chat_id, HELP_TEXT, keyboard=True)
+            return
+
+        if action == "rumyantsevo-status":
+            result = self.helper_runner("well-level")
+            water_level = (
+                result.output
+                if result.ok
+                else "⚠️ Уровень воды в колодце: нет данных"
+            )
+            self.send(
+                chat_id,
+                rumyantsevo_status_text(water_level),
+                reply_markup=rumyantsevo_keyboard(),
+            )
             return
 
         if action not in {"status", "water-status", "network-status"}:
