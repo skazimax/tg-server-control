@@ -92,7 +92,7 @@ def ambient_temperature(session: Any = requests) -> float:
 
 
 def format_temperature(value: float, label: str) -> str:
-    return f"🌡 {label}: {value:g} °C"
+    return f"🌡 {label}: {value:.1f} °C"
 
 
 def main() -> int:
