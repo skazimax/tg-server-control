@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd /home/skazimax/apps/sonar-water-report
+set -a
+source ./.env
+set +a
+
+export YDB_ENDPOINT='grpcs://ydb.serverless.yandexcloud.net:2135'
+export YDB_DATABASE='/ru-central1/b1gdnek1vass1304b25b/etno2m5md35qr1c29de2'
+export YDB_TABLE='mqtt_sonar1_db'
+export REPORT_TIMEZONE='Europe/Moscow'
+export VALID_MIN_CM='20'
+export VALID_MAX_CM='500'
+export WATER_STATUS_MAX_AGE_MINUTES='15'
+export YDB_SERVICE_ACCOUNT_KEY_FILE_CREDENTIALS='/home/skazimax/apps/sonar-water-report/ydb-sa-key.json'
+
+exec /home/skazimax/git/egg_cam/.venv/bin/python ./water_status.py
