@@ -30,6 +30,7 @@ class BotConfigurationTest(unittest.TestCase):
 
     def test_rumyantsevo_screen_has_all_placeholder_statuses(self) -> None:
         text = rumyantsevo_status_text(
+            "⚠️ Дом, 1 этаж: нет данных",
             "⚠️ Уровень воды в колодце: нет данных"
         )
         self.assertIn("Дом, 1 этаж: нет данных", text)
@@ -48,10 +49,10 @@ class BotConfigurationTest(unittest.TestCase):
 
     def test_rumyantsevo_screen_uses_real_well_level(self) -> None:
         helper_runner = Mock(
-            return_value=Mock(
-                ok=True,
-                output="💧 Уровень воды в колодце: 123 см",
-            )
+            side_effect=[
+                Mock(ok=True, output="🌡 Дом, 1 этаж: 22.5 °C"),
+                Mock(ok=True, output="💧 Уровень воды в колодце: 123 см"),
+            ]
         )
         bot = ControlBot("token", {123}, helper_runner=helper_runner)
         bot.send = Mock()
@@ -66,10 +67,16 @@ class BotConfigurationTest(unittest.TestCase):
             }
         )
 
-        helper_runner.assert_called_once_with("well-level")
+        self.assertEqual(
+            helper_runner.call_args_list,
+            [unittest.mock.call("nest-temperature"), unittest.mock.call("well-level")],
+        )
         bot.send.assert_called_once_with(
             123,
-            rumyantsevo_status_text("💧 Уровень воды в колодце: 123 см"),
+            rumyantsevo_status_text(
+                "🌡 Дом, 1 этаж: 22.5 °C",
+                "💧 Уровень воды в колодце: 123 см",
+            ),
             reply_markup=rumyantsevo_keyboard(),
         )
 

@@ -20,6 +20,8 @@ install -o root -g root -m 0644 "$repo_dir/lib/status-common.sh" \
     /usr/local/lib/tg-server-control/status-common.sh
 install -o root -g root -m 0644 "$repo_dir/providers/well_status.py" \
     /usr/local/lib/tg-server-control/well_status.py
+install -o root -g root -m 0644 "$repo_dir/providers/nest_temperature.py" \
+    /usr/local/lib/tg-server-control/nest_temperature.py
 install -o root -g root -m 0755 "$repo_dir/status.d/"* \
     /etc/tg-server-control/status.d/
 install -o root -g root -m 0600 "$repo_dir/config/well.env" \
@@ -30,4 +32,3 @@ visudo -cf /etc/sudoers.d/tg-server-control >/dev/null
 install -o root -g root -m 0644 "$repo_dir/systemd/tg-server-control.service" \
     /etc/systemd/system/tg-server-control.service
 systemctl daemon-reload
-

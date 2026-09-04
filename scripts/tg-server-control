@@ -47,6 +47,19 @@ water_status() {
     timer_next "Неделя" sonar-water-report-weekly.timer
 }
 
+nest_temperature() {
+    local config=/etc/tg-server-control/nest.env
+    if [[ ! -r "$config" ]]; then
+        printf '⚠️ Дом, 1 этаж: нет данных\n'
+        return
+    fi
+    set -a
+    source "$config"
+    set +a
+    /home/skazimax/git/tg-server-control/.venv/bin/python \
+        /usr/local/lib/tg-server-control/nest_temperature.py
+}
+
 network_status() {
     run_status_provider "$status_dir/20-vpn"
     run_status_provider "$status_dir/30-rumyantsevo"
@@ -79,6 +92,7 @@ case "${1:-}" in
     water-daily) water_run daily ;;
     water-weekly) water_run weekly ;;
     well-level) run_status_provider "$status_dir/40-well" level ;;
+    nest-temperature) nest_temperature ;;
     network-status) network_status ;;
     sstp-restart)
         systemctl restart egg-cam-sstp.service
