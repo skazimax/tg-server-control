@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Copy to status.d/NN-name and make executable. Print exactly one compact line.
+printf '✅ Температура дома: 22.5 °C\n'
+
