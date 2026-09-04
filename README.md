@@ -1,5 +1,9 @@
 # TG Server Control
 
+[Project page](https://skazimax.github.io/tg-server-control/) ·
+[Privacy policy](https://skazimax.github.io/tg-server-control/privacy.html) ·
+[Terms of service](https://skazimax.github.io/tg-server-control/terms.html)
+
 Отдельный Telegram-бот для статусов и управления сервисами домашнего сервера.
 Он не является частью `egg_cam`: мониторинг яиц — лишь один из подключённых
 status-провайдеров.
