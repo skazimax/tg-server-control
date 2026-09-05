@@ -26,9 +26,9 @@ status-провайдеров.
 ```text
 ⏹ Яйца
 ✅ VPN: AdGuard
+✅ MTProto
 ✅ Румянцево(SSTP)
 ❌ Колодец
-✅ Температура дома: 22.5 °C
 ```
 
 Чтобы добавить показатель, положите исполняемый файл `NN-name` в `status.d`.
@@ -41,20 +41,20 @@ status-провайдеров.
 - `/etc/tg-server-control/bot.env` — Telegram token, список администраторов и
   путь к offset; файл не хранится в Git;
 - `/etc/tg-server-control/well.env` — настройки проверки данных колодца;
-- `/etc/tg-server-control/nest.env` — OAuth и Device Access параметры Nest;
 - `/etc/tg-server-control/status.d` — установленные status-провайдеры;
 - `/var/lib/tg-server-control/update_offset` — последний обработанный update.
 
 Исходящий Telegram-трафик использует общий SOCKS
 `socks5h://127.0.0.1:1079`, предоставляемый `tg-vpn-failover`.
 
-### Nest Thermostat
+### Сетевые команды
 
-Скопируйте `config/nest.env.example` в `/etc/tg-server-control/nest.env`,
-заполните параметры и установите права `0600`. Refresh token получается после
-однократной привязки Google-аккаунта через Partner Connections Manager. Access
-token обновляется автоматически при каждом запросе статуса. Если устройств
-несколько, задайте `NEST_DEVICE_ID`; без него используется первый термостат.
+Экран «Статус сети» показывает текущий upstream VPN, MTProto, таймер
+failover, SSTP и маршрут до камеры. Команда перезапуска AdGuard выполняется
+через `tg-vpn-failover`: она ждёт восстановления Telegram, а при отказе
+активного AdGuard сразу переключает upstream на VLESS.
+
+Меню slash-команд Telegram синхронизируется из кода при запуске бота.
 
 ## Установка
 

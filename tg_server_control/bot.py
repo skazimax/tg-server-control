@@ -33,20 +33,40 @@ COMMANDS: dict[str, tuple[str | None, str]] = {
     "/start": (None, "Справка"),
 }
 
+TELEGRAM_COMMAND_DESCRIPTIONS: dict[str, str] = {
+    "/status": "Состояние всех компонентов",
+    "/rumyantsevo": "Температура, влажность и колодец",
+    "/egg_on": "Запустить мониторинг яиц",
+    "/egg_off": "Остановить мониторинг яиц",
+    "/egg_restart": "Перезапустить мониторинг яиц",
+    "/water_status": "Расписание отчётов колодца",
+    "/water_daily_toggle": "Включить или выключить дневной отчёт",
+    "/water_weekly_toggle": "Включить или выключить недельный отчёт",
+    "/water_daily": "Отправить дневной отчёт",
+    "/water_weekly": "Отправить недельный отчёт",
+    "/network_status": "Состояние сети и VPN",
+    "/sstp_restart": "Переподключить Румянцево(SSTP)",
+    "/adguard_restart": "Контролируемо перезапустить AdGuard",
+    "/help": "Список команд",
+}
+
 
 HELP_TEXT = """Управление домашним сервером
 
 /status — состояние всех компонентов
 /rumyantsevo — показатели дома в Румянцево
-/egg_on — включить мониторинг яиц и автозапуск
-/egg_off — остановить мониторинг яиц и отключить автозапуск
+/egg_on — запустить мониторинг яиц
+/egg_off — остановить мониторинг яиц
 /egg_restart — перезапустить мониторинг яиц
 /water_status — расписание и ручная отправка отчётов колодца
+/water_daily_toggle — включить или выключить дневной отчёт
+/water_weekly_toggle — включить или выключить недельный отчёт
 /water_daily — отправить дневной отчёт сейчас
 /water_weekly — отправить недельный отчёт сейчас
-/network_status — состояние AdGuard, SSTP и маршрута до камеры
+/network_status — состояние VPN, MTProto, failover, SSTP и маршрута до камеры
 /sstp_restart — переподключить Румянцево(SSTP)
-/adguard_restart — перезапустить AdGuard
+/adguard_restart — контролируемо перезапустить AdGuard
+/help — показать эту справку
 """
 
 
@@ -79,8 +99,8 @@ def command_keyboard() -> dict[str, Any]:
                 {"text": "Статус сети", "callback_data": "/network_status"},
             ],
             [
-                {"text": "Включить яйца", "callback_data": "/egg_on"},
-                {"text": "Выключить яйца", "callback_data": "/egg_off"},
+                {"text": "Запустить яйца", "callback_data": "/egg_on"},
+                {"text": "Остановить яйца", "callback_data": "/egg_off"},
             ],
             [
                 {"text": "Отчёты колодца", "callback_data": "/water_status"},
@@ -113,6 +133,26 @@ def rumyantsevo_keyboard() -> dict[str, Any]:
             [{"text": "← Назад", "callback_data": "/status"}],
         ]
     }
+
+
+def network_keyboard() -> dict[str, Any]:
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "Перезапустить AdGuard", "callback_data": "/adguard_restart"},
+                {"text": "Перезапустить SSTP", "callback_data": "/sstp_restart"},
+            ],
+            [{"text": "🔄 Обновить", "callback_data": "/network_status"}],
+            [{"text": "← Назад", "callback_data": "/status"}],
+        ]
+    }
+
+
+def telegram_command_menu() -> list[dict[str, str]]:
+    return [
+        {"command": command.removeprefix("/"), "description": description}
+        for command, description in TELEGRAM_COMMAND_DESCRIPTIONS.items()
+    ]
 
 
 @dataclass
@@ -269,13 +309,31 @@ class ControlBot:
                 result.ok and status_result.ok,
                 status_result.output,
             )
+        network_menu_actions = {
+            "network-status",
+            "sstp-restart",
+            "adguard-restart",
+        }
+        if action in {"sstp-restart", "adguard-restart"}:
+            status_result = self.helper_runner("network-status")
+            result = HelperResult(
+                result.ok and status_result.ok,
+                status_result.output,
+            )
         icon = "✅" if result.ok else "❌"
         self.send(
             chat_id,
             f"{icon} {label}\n\n{result.output}",
-            keyboard=action not in water_menu_actions,
+            keyboard=(
+                action not in water_menu_actions
+                and action not in network_menu_actions
+            ),
             reply_markup=(
-                water_report_keyboard() if action in water_menu_actions else None
+                water_report_keyboard()
+                if action in water_menu_actions
+                else network_keyboard()
+                if action in network_menu_actions
+                else None
             ),
         )
 
@@ -302,8 +360,13 @@ class ControlBot:
 
     def run_forever(self) -> None:
         LOGGER.info("control bot started for %d admin(s)", len(self.admin_user_ids))
+        commands_synced = False
         while True:
             try:
+                if not commands_synced:
+                    self.api("setMyCommands", {"commands": telegram_command_menu()})
+                    commands_synced = True
+                    LOGGER.info("Telegram command menu synchronized")
                 self.poll_once()
             except requests.RequestException as exc:
                 LOGGER.warning("Telegram polling failed (%s)", type(exc).__name__)

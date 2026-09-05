@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mtg=$(systemctl is-active mtg.service 2>/dev/null || true)
+egress=$(systemctl is-active mtproxy-egress.service 2>/dev/null || true)
+failover=$(systemctl is-active mtproxy-failover.timer 2>/dev/null || true)
+
+if [[ $mtg == active && $egress == active && $failover == active ]] && \
+    ss -lnt | grep -qE '(^|[[:space:]])[^[:space:]]*:443[[:space:]]'; then
+    printf '✅ MTProto\n'
+else
+    printf '❌ MTProto\n'
+fi

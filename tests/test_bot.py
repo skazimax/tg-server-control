@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 with patch.dict("sys.modules", {"requests": Mock()}):
+    import tg_server_control.bot as bot_module
     from tg_server_control.bot import (
+        COMMANDS,
         ControlBot,
         command_keyboard,
+        network_keyboard,
         parse_admin_user_ids,
         rumyantsevo_keyboard,
         rumyantsevo_status_text,
+        telegram_command_menu,
         water_report_keyboard,
     )
 
@@ -96,6 +101,82 @@ class BotConfigurationTest(unittest.TestCase):
         }
         self.assertIn("/water_daily_toggle", callbacks)
         self.assertIn("/water_weekly_toggle", callbacks)
+
+    def test_network_keyboard_has_current_actions(self) -> None:
+        callbacks = {
+            button["callback_data"]
+            for row in network_keyboard()["inline_keyboard"]
+            for button in row
+        }
+        self.assertEqual(
+            callbacks,
+            {"/adguard_restart", "/sstp_restart", "/network_status", "/status"},
+        )
+
+    def test_telegram_menu_covers_commands_except_start(self) -> None:
+        menu_commands = {f"/{item['command']}" for item in telegram_command_menu()}
+        self.assertEqual(menu_commands, set(COMMANDS) - {"/start"})
+
+    def test_adguard_restart_returns_to_network_screen(self) -> None:
+        helper_runner = Mock(
+            side_effect=[
+                Mock(ok=True, output="✅ VPN: AdGuard"),
+                Mock(
+                    ok=True,
+                    output="✅ VPN: AdGuard\n✅ MTProto\n✅ Failover",
+                ),
+            ]
+        )
+        bot = ControlBot("token", {123}, helper_runner=helper_runner)
+        bot.send = Mock()
+
+        bot.handle_update(
+            {
+                "message": {
+                    "from": {"id": 123},
+                    "chat": {"id": 123, "type": "private"},
+                    "text": "/adguard_restart",
+                }
+            }
+        )
+
+        self.assertEqual(
+            helper_runner.call_args_list,
+            [
+                unittest.mock.call("adguard-restart"),
+                unittest.mock.call("network-status"),
+            ],
+        )
+        bot.send.assert_called_with(
+            123,
+            "✅ AdGuard: перезапуск\n\n"
+            "✅ VPN: AdGuard\n✅ MTProto\n✅ Failover",
+            keyboard=False,
+            reply_markup=network_keyboard(),
+        )
+
+    def test_bot_synchronizes_telegram_commands_before_polling(self) -> None:
+        bot = ControlBot("token", {123})
+        bot.api = Mock(side_effect=[None, KeyboardInterrupt])
+
+        class RequestException(Exception):
+            pass
+
+        with patch.object(
+            bot_module,
+            "requests",
+            SimpleNamespace(RequestException=RequestException),
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                bot.run_forever()
+
+        self.assertEqual(
+            bot.api.call_args_list[0],
+            unittest.mock.call(
+                "setMyCommands",
+                {"commands": telegram_command_menu()},
+            ),
+        )
 
 
 if __name__ == "__main__":

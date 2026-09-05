@@ -76,7 +76,11 @@ nest_climate_status() {
 }
 
 network_status() {
-    run_status_provider "$status_dir/20-vpn"
+    if [[ -x /usr/local/sbin/tg-vpn-failover-status ]]; then
+        /usr/local/sbin/tg-vpn-failover-status --verbose
+    else
+        run_status_provider "$status_dir/20-vpn"
+    fi
     run_status_provider "$status_dir/30-rumyantsevo"
     local route_device
     route_device=$(ip route get 192.168.2.3 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i == "dev") {print $(i+1); exit}}')
@@ -90,11 +94,11 @@ network_status() {
 case "${1:-}" in
     status) run_all_statuses ;;
     egg-on)
-        systemctl enable --now egg-cam.service
+        systemctl start egg-cam.service
         unit_icon "Яйца" egg-cam.service
         ;;
     egg-off)
-        systemctl disable --now egg-cam.service
+        systemctl stop egg-cam.service
         unit_icon "Яйца" egg-cam.service
         ;;
     egg-restart)
@@ -115,7 +119,7 @@ case "${1:-}" in
         unit_icon "Румянцево(SSTP)" egg-cam-sstp.service
         ;;
     adguard-restart)
-        systemctl restart egg-cam-adguard.service
+        /usr/local/sbin/mtproxy-failover --restart-adguard
         run_status_provider "$status_dir/20-vpn"
         ;;
     *)
