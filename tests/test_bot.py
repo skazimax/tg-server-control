@@ -110,14 +110,17 @@ class BotConfigurationTest(unittest.TestCase):
         }
         self.assertEqual(
             callbacks,
-            {"/adguard_restart", "/sstp_restart", "/network_status", "/status"},
+            {"/vpn_switch", "/sstp_restart", "/network_status", "/status"},
         )
 
     def test_telegram_menu_covers_commands_except_start(self) -> None:
         menu_commands = {f"/{item['command']}" for item in telegram_command_menu()}
-        self.assertEqual(menu_commands, set(COMMANDS) - {"/start"})
+        self.assertEqual(
+            menu_commands,
+            set(COMMANDS) - {"/start", "/adguard_restart"},
+        )
 
-    def test_adguard_restart_returns_to_network_screen(self) -> None:
+    def test_vpn_switch_returns_to_network_screen(self) -> None:
         helper_runner = Mock(
             side_effect=[
                 Mock(ok=True, output="✅ VPN: AdGuard"),
@@ -135,7 +138,7 @@ class BotConfigurationTest(unittest.TestCase):
                 "message": {
                     "from": {"id": 123},
                     "chat": {"id": 123, "type": "private"},
-                    "text": "/adguard_restart",
+                    "text": "/vpn_switch",
                 }
             }
         )
@@ -143,13 +146,13 @@ class BotConfigurationTest(unittest.TestCase):
         self.assertEqual(
             helper_runner.call_args_list,
             [
-                unittest.mock.call("adguard-restart"),
+                unittest.mock.call("vpn-switch"),
                 unittest.mock.call("network-status"),
             ],
         )
         bot.send.assert_called_with(
             123,
-            "✅ AdGuard: перезапуск\n\n"
+            "✅ VPN: переключение\n\n"
             "✅ VPN: AdGuard\n✅ MTProto\n✅ Failover",
             keyboard=False,
             reply_markup=network_keyboard(),

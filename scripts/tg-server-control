@@ -118,8 +118,8 @@ case "${1:-}" in
         systemctl restart egg-cam-sstp.service
         unit_icon "Румянцево(SSTP)" egg-cam-sstp.service
         ;;
-    adguard-restart)
-        /usr/local/sbin/mtproxy-failover --restart-adguard
+    vpn-switch)
+        /usr/local/sbin/mtproxy-failover --force-switch
         run_status_provider "$status_dir/20-vpn"
         ;;
     *)

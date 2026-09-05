@@ -28,7 +28,9 @@ COMMANDS: dict[str, tuple[str | None, str]] = {
     "/water_weekly": ("water-weekly", "Колодец: недельный отчёт"),
     "/network_status": ("network-status", "Сеть"),
     "/sstp_restart": ("sstp-restart", "Румянцево(SSTP): перезапуск"),
-    "/adguard_restart": ("adguard-restart", "AdGuard: перезапуск"),
+    "/vpn_switch": ("vpn-switch", "VPN: переключение"),
+    # Compatibility with buttons already present in older bot messages.
+    "/adguard_restart": ("vpn-switch", "VPN: переключение"),
     "/help": (None, "Справка"),
     "/start": (None, "Справка"),
 }
@@ -46,7 +48,7 @@ TELEGRAM_COMMAND_DESCRIPTIONS: dict[str, str] = {
     "/water_weekly": "Отправить недельный отчёт",
     "/network_status": "Состояние сети и VPN",
     "/sstp_restart": "Переподключить Румянцево(SSTP)",
-    "/adguard_restart": "Контролируемо перезапустить AdGuard",
+    "/vpn_switch": "Переключить AdGuard и SKIPP",
     "/help": "Список команд",
 }
 
@@ -65,7 +67,7 @@ HELP_TEXT = """Управление домашним сервером
 /water_weekly — отправить недельный отчёт сейчас
 /network_status — состояние VPN, MTProto, failover, SSTP и маршрута до камеры
 /sstp_restart — переподключить Румянцево(SSTP)
-/adguard_restart — контролируемо перезапустить AdGuard
+/vpn_switch — переключить AdGuard и SKIPP
 /help — показать эту справку
 """
 
@@ -139,7 +141,7 @@ def network_keyboard() -> dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "Перезапустить AdGuard", "callback_data": "/adguard_restart"},
+                {"text": "Переключить VPN", "callback_data": "/vpn_switch"},
                 {"text": "Перезапустить SSTP", "callback_data": "/sstp_restart"},
             ],
             [{"text": "🔄 Обновить", "callback_data": "/network_status"}],
@@ -312,9 +314,9 @@ class ControlBot:
         network_menu_actions = {
             "network-status",
             "sstp-restart",
-            "adguard-restart",
+            "vpn-switch",
         }
-        if action in {"sstp-restart", "adguard-restart"}:
+        if action in {"sstp-restart", "vpn-switch"}:
             status_result = self.helper_runner("network-status")
             result = HelperResult(
                 result.ok and status_result.ok,
