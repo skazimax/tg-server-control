@@ -5,21 +5,30 @@ After=network-online.target
 
 [Service]
 Type=simple
-User=skazimax
-Group=skazimax
-WorkingDirectory=/home/skazimax/git/tg-server-control
+User=tg-server-control
+Group=tg-server-control
+WorkingDirectory=/opt/tg-server-control/app
 EnvironmentFile=/etc/tg-server-control/bot.env
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=ALL_PROXY=socks5h://127.0.0.1:1079
 Environment=all_proxy=socks5h://127.0.0.1:1079
 Environment=NO_PROXY=localhost,127.0.0.1
 Environment=no_proxy=localhost,127.0.0.1
 Environment=TELEGRAM_UPDATE_OFFSET_FILE=/var/lib/tg-server-control/update_offset
-ExecStart=/home/skazimax/git/tg-server-control/.venv/bin/python -m tg_server_control.bot
+ExecStart=/opt/tg-server-control/venv/bin/python -m tg_server_control.bot
 Restart=always
 RestartSec=10
 TimeoutStopSec=15
 PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+# Fixed sudo helpers need to update root-owned VPN configuration.
+ReadWritePaths=/etc/sing-box
+StateDirectory=tg-server-control
+StateDirectoryMode=0750
+UMask=0077
+# NoNewPrivileges must remain off while the fixed sudo helper is used.
 
 [Install]
 WantedBy=multi-user.target

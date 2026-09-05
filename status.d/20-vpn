@@ -3,6 +3,4 @@ set -euo pipefail
 if [[ -x /usr/local/sbin/tg-vpn-failover-status ]]; then
     exec /usr/local/sbin/tg-vpn-failover-status
 fi
-source /usr/local/lib/tg-server-control/status-common.sh
-unit_icon "VPN" egg-cam-adguard.service
-
+printf '⚠️ VPN: модуль проверок недоступен\n'

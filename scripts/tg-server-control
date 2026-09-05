@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-status_dir=${TG_CONTROL_STATUS_DIR:-/etc/tg-server-control/status.d}
+[[ $# -eq 1 ]] || { echo "exactly one action is required" >&2; exit 2; }
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+status_dir=/etc/tg-server-control/status.d
 source /usr/local/lib/tg-server-control/status-common.sh
 
 run_status_provider() {
     local provider="$1"
     shift
     if [[ -x "$provider" ]]; then
-        "$provider" "$@" || printf '❌ %s\n' "$(basename "$provider")"
+        timeout --kill-after=2s 30s "$provider" "$@" || printf '❌ %s: ошибка или превышено время ожидания\n' "$(basename "$provider")"
     fi
 }
 
@@ -56,7 +58,7 @@ nest_temperature() {
     set -a
     source "$config"
     set +a
-    /home/skazimax/git/tg-server-control/.venv/bin/python \
+    /opt/tg-server-control/venv/bin/python -I \
         /usr/local/lib/tg-server-control/nest_temperature.py
 }
 
@@ -71,7 +73,7 @@ nest_climate_status() {
     source "$config"
     set +a
     YDB_TABLE=nest_environment_readings \
-        /home/skazimax/git/tg-server-control/.venv/bin/python \
+        /opt/tg-server-control/venv/bin/python -I \
         /usr/local/lib/tg-server-control/nest_climate_status.py
 }
 
@@ -84,8 +86,10 @@ network_status() {
     run_status_provider "$status_dir/30-rumyantsevo"
     local route_device
     route_device=$(ip route get 192.168.2.3 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i == "dev") {print $(i+1); exit}}')
-    if [[ -n "$route_device" ]]; then
-        printf '✅ Камера: маршрут через %s\n' "$route_device"
+    if [[ "$route_device" == ppp20 ]]; then
+        printf '✅ Камера: маршрут через SSTP (%s); доступность камеры не проверялась\n' "$route_device"
+    elif [[ -n "$route_device" ]]; then
+        printf '❌ Камера: маршрут через %s вместо SSTP (ppp20)\n' "$route_device"
     else
         printf '❌ Камера: маршрут не найден\n'
     fi

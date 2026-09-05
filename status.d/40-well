@@ -3,5 +3,5 @@ set -euo pipefail
 set -a
 source /etc/tg-server-control/well.env
 set +a
-exec /home/skazimax/git/tg-server-control/.venv/bin/python \
+exec /opt/tg-server-control/venv/bin/python -I \
     /usr/local/lib/tg-server-control/well_status.py "${1:-}"

@@ -1,2 +1,19 @@
-# The executable is owned by root and accepts only the fixed actions defined in it.
-skazimax ALL=(root) NOPASSWD: /usr/local/sbin/tg-server-control *
+# Only the root-owned helper and its exact single-argument actions are allowed.
+Defaults:tg-server-control env_reset
+Defaults:tg-server-control env_delete += "PYTHONPATH PYTHONHOME BASH_ENV ENV"
+tg-server-control ALL=(root) NOPASSWD: NOSETENV: \
+    /usr/local/sbin/tg-server-control status, \
+    /usr/local/sbin/tg-server-control network-status, \
+    /usr/local/sbin/tg-server-control water-status, \
+    /usr/local/sbin/tg-server-control well-level, \
+    /usr/local/sbin/tg-server-control nest-temperature, \
+    /usr/local/sbin/tg-server-control nest-climate-status, \
+    /usr/local/sbin/tg-server-control water-daily-toggle, \
+    /usr/local/sbin/tg-server-control water-weekly-toggle, \
+    /usr/local/sbin/tg-server-control water-daily, \
+    /usr/local/sbin/tg-server-control water-weekly, \
+    /usr/local/sbin/tg-server-control egg-on, \
+    /usr/local/sbin/tg-server-control egg-off, \
+    /usr/local/sbin/tg-server-control egg-restart, \
+    /usr/local/sbin/tg-server-control sstp-restart, \
+    /usr/local/sbin/tg-server-control vpn-switch

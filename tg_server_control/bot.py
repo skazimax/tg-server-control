@@ -11,6 +11,8 @@ from typing import Any, Callable
 
 import requests
 
+from .command_journal import CommandJournal
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -161,6 +163,7 @@ def telegram_command_menu() -> list[dict[str, str]]:
 class HelperResult:
     ok: bool
     output: str
+    uncertain: bool = False
 
 
 def run_helper(action: str, timeout: int = 180) -> HelperResult:
@@ -169,13 +172,15 @@ def run_helper(action: str, timeout: int = 180) -> HelperResult:
     )
     try:
         result = subprocess.run(
-            ["sudo", helper, action],
+            ["sudo", "-n", helper, action],
             check=False,
             capture_output=True,
             text=True,
             timeout=timeout,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except subprocess.TimeoutExpired:
+        return HelperResult(False, "Время ожидания истекло. Результат команды неизвестен; проверьте статус перед повтором.", True)
+    except OSError as exc:
         return HelperResult(False, f"Ошибка запуска helper: {type(exc).__name__}")
     output = (result.stdout or result.stderr or "Нет вывода").strip()
     return HelperResult(result.returncode == 0, output[:3500])
@@ -188,29 +193,60 @@ class ControlBot:
         admin_user_ids: set[int],
         helper_runner: Callable[[str], HelperResult] = run_helper,
         offset_file: Path | None = None,
+        journal: CommandJournal | None = None,
     ) -> None:
         self.token = token
         self.admin_user_ids = admin_user_ids
         self.helper_runner = helper_runner
         self.offset_file = offset_file
         self.offset = self._load_offset()
+        self.journal = journal
+        self.current_update: int | None = None
+        self.execution = "ignored"
+        self.delivery = "none"
 
     def _load_offset(self) -> int | None:
         if self.offset_file is None or not self.offset_file.exists():
             return None
         try:
-            return int(self.offset_file.read_text(encoding="utf-8").strip())
+            value = int(self.offset_file.read_text(encoding="utf-8").strip())
+            if value < 0:
+                raise ValueError("negative offset")
+            return value
         except (OSError, ValueError):
-            LOGGER.warning("invalid Telegram offset file; starting without offset")
-            return None
+            raise RuntimeError("invalid Telegram offset file; refusing to replay commands") from None
 
     def _save_offset(self) -> None:
         if self.offset_file is None or self.offset is None:
             return
         self.offset_file.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.offset_file.with_suffix(".tmp")
-        temporary.write_text(str(self.offset), encoding="utf-8")
+        with temporary.open("w", encoding="utf-8") as stream:
+            temporary.chmod(0o600)
+            stream.write(str(self.offset))
+            stream.flush()
+            os.fsync(stream.fileno())
         temporary.replace(self.offset_file)
+        directory = os.open(self.offset_file.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+
+    def execute_helper(self, action: str) -> HelperResult:
+        if self.journal is not None and self.current_update is not None:
+            self.journal.helper(self.current_update, action, "started")
+        previous = self.execution
+        self.execution = "unknown"
+        result = self.helper_runner(action)
+        outcome = "unknown" if result.uncertain is True else "success" if result.ok else "failed"
+        self.execution = (
+            "unknown" if "unknown" in (previous, outcome)
+            else "failed" if "failed" in (previous, outcome) else "success"
+        )
+        if self.journal is not None and self.current_update is not None:
+            self.journal.helper(self.current_update, action, outcome)
+        return result
 
     def api(self, method: str, payload: dict[str, Any], timeout: int = 40) -> Any:
         response = requests.post(
@@ -238,6 +274,7 @@ class ControlBot:
         elif keyboard:
             payload["reply_markup"] = command_keyboard()
         self.api("sendMessage", payload)
+        self.delivery = "sent"
 
     def handle_update(self, update: dict[str, Any]) -> None:
         callback = update.get("callback_query")
@@ -248,13 +285,16 @@ class ControlBot:
             command = str(callback.get("data", ""))
             callback_id = callback.get("id")
             if callback_id:
-                self.api("answerCallbackQuery", {"callback_query_id": callback_id})
+                try:
+                    self.api("answerCallbackQuery", {"callback_query_id": callback_id})
+                except Exception as exc:
+                    LOGGER.warning("callback acknowledgement failed (%s)", type(exc).__name__)
         else:
             message = update.get("message", {})
             sender = message.get("from", {})
             chat = message.get("chat", {})
             text = str(message.get("text", "")).strip()
-            command = text.split(maxsplit=1)[0].split("@", maxsplit=1)[0]
+            command = text.split(maxsplit=1)[0].split("@", maxsplit=1)[0] if text else ""
 
         user_id = sender.get("id")
         chat_id = chat.get("id")
@@ -272,19 +312,20 @@ class ControlBot:
             return
 
         action, label = COMMANDS[command]
+        self.execution = "success"
         if action is None:
             self.send(chat_id, HELP_TEXT, keyboard=True)
             return
 
         if action == "rumyantsevo-status":
-            nest_result = self.helper_runner("nest-climate-status")
+            nest_result = self.execute_helper("nest-climate-status")
             house_climate = (
                 nest_result.output
                 if nest_result.ok
                 else "⚠️ Дом, 1 этаж: нет данных\n"
                 "⚠️ Дом, 2 этаж: нет данных"
             )
-            result = self.helper_runner("well-level")
+            result = self.execute_helper("well-level")
             water_level = (
                 result.output
                 if result.ok
@@ -298,18 +339,22 @@ class ControlBot:
             return
 
         if action not in {"status", "water-status", "network-status"}:
-            self.send(chat_id, f"⏳ {label}…")
-        result = self.helper_runner(action)
+            try:
+                self.send(chat_id, f"⏳ {label}…")
+            except Exception as exc:
+                LOGGER.warning("progress message failed (%s)", type(exc).__name__)
+        result = self.execute_helper(action)
         water_menu_actions = {
             "water-status",
             "water-daily-toggle",
             "water-weekly-toggle",
         }
         if action in {"water-daily-toggle", "water-weekly-toggle"}:
-            status_result = self.helper_runner("water-status")
+            status_result = self.execute_helper("water-status")
             result = HelperResult(
                 result.ok and status_result.ok,
-                status_result.output,
+                status_result.output if result.ok else result.output + "\n\n" + status_result.output,
+                result.uncertain is True,
             )
         network_menu_actions = {
             "network-status",
@@ -317,12 +362,15 @@ class ControlBot:
             "vpn-switch",
         }
         if action in {"sstp-restart", "vpn-switch"}:
-            status_result = self.helper_runner("network-status")
+            status_result = self.execute_helper("network-status")
             result = HelperResult(
                 result.ok and status_result.ok,
-                status_result.output,
+                status_result.output if result.ok else result.output + "\n\n" + status_result.output,
+                result.uncertain is True,
             )
-        icon = "✅" if result.ok else "❌"
+        icon = "⚠️" if result.uncertain is True else "✅" if result.ok else "❌"
+        if action in {"status", "water-status", "network-status"} and result.ok:
+            icon = "ℹ️"
         self.send(
             chat_id,
             f"{icon} {label}\n\n{result.output}",
@@ -349,16 +397,40 @@ class ControlBot:
         updates = self.api("getUpdates", payload, timeout=40) or []
         for update in updates:
             update_id = update.get("update_id")
-            if isinstance(update_id, int):
-                self.offset = update_id + 1
-                # Persist before executing the action. This gives commands
-                # at-most-once semantics if Telegram becomes unavailable while
-                # the result is being sent back to the administrator.
-                self._save_offset()
+            if type(update_id) is not int or (self.offset is not None and update_id < self.offset):
+                continue
+            callback = update.get("callback_query") or {}
+            message = update.get("message") or {}
+            raw = str(callback.get("data") or message.get("text") or "")
+            command = raw.split(maxsplit=1)[0].split("@", 1)[0] if raw.strip() else ""
+            sender = (callback or message).get("from") or {}
+            user_id = sender.get("id")
+            claimed = self.journal is None or self.journal.claim(
+                update_id, user_id if type(user_id) is int else None,
+                command if command in COMMANDS else "unrecognized",
+            )
+            self.offset = update_id + 1
+            self._save_offset()
+            if not claimed:
+                LOGGER.warning("skipped previously recorded update_id=%s", update_id)
+                continue
+            self.current_update = update_id
+            self.execution = "ignored"
+            self.delivery = "none"
             try:
                 self.handle_update(update)
             except Exception as exc:  # keep polling after one malformed update
+                self.delivery = "unknown"
                 LOGGER.error("failed to handle Telegram update (%s)", type(exc).__name__)
+            finally:
+                if self.journal is not None:
+                    self.journal.finish(update_id, self.execution, self.delivery)
+                LOGGER.info("command update_id=%s command=%s execution=%s delivery=%s",
+                            update_id, command if command in COMMANDS else "unrecognized",
+                            self.execution, self.delivery)
+                self.current_update = None
+        if self.journal is not None:
+            self.journal.prune(self.offset)
 
     def run_forever(self) -> None:
         LOGGER.info("control bot started for %d admin(s)", len(self.admin_user_ids))
@@ -400,7 +472,8 @@ def main() -> int:
             "runtime/control-bot/update_offset",
         )
     )
-    ControlBot(token, admin_user_ids, offset_file=offset_file).run_forever()
+    journal = CommandJournal(offset_file.parent / "commands.sqlite3")
+    ControlBot(token, admin_user_ids, offset_file=offset_file, journal=journal).run_forever()
     return 0
 
 
