@@ -69,12 +69,12 @@ class JournalTest(unittest.TestCase):
         self.helper.assert_not_called()
         self.assertEqual(self.row()[0], 'running')
 
-    def test_error_preserved_when_status_succeeds(self):
+    def test_error_is_recorded_but_technical_output_is_hidden(self):
         self.helper.side_effect = [HelperResult(False, 'SWITCH FAILED'), HelperResult(True, 'NETWORK OK')]
         self.api_updates([update()]); self.bot.poll_once()
         final = self.bot.api.call_args_list[-1].args[1]['text']
-        self.assertIn('SWITCH FAILED', final); self.assertIn('NETWORK OK', final)
-        self.assertTrue(final.startswith('❌')); self.assertEqual(self.row(), ('failed', 'sent'))
+        self.assertEqual(final, '❌ Не удалось выполнить команду')
+        self.assertEqual(self.row(), ('failed', 'sent'))
         events = self.journal.db.execute('SELECT action,result FROM helper_events').fetchall()
         self.assertEqual(events, [('vpn-switch','started'),('vpn-switch','failed'),('network-status','started'),('network-status','success')])
 
@@ -104,7 +104,7 @@ class JournalTest(unittest.TestCase):
 
     def test_status_header_not_all_healthy(self):
         self.api_updates([update(text='/status')]); self.bot.poll_once()
-        self.assertTrue(self.bot.api.call_args_list[-1].args[1]['text'].startswith('ℹ️'))
+        self.assertTrue(self.bot.api.call_args_list[-1].args[1]['text'].startswith('Статус\n'))
 
     def test_prune_preserves_unknown_and_unacknowledged(self):
         for number in [1,2,3]:

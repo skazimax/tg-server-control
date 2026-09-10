@@ -31,7 +31,7 @@ class NestClimateStatusTest(unittest.TestCase):
         )
         self.assertEqual(
             self.provider.format_reading("1", row),
-            "🌡 Дом, 1 этаж: 24.8 °C · влажность 52%",
+            "🌡 1 этаж: 24.8 °C · 52%",
         )
 
     def test_missing_or_offline_reading_is_unavailable(self) -> None:

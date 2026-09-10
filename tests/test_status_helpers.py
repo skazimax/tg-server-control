@@ -25,16 +25,13 @@ unit_icon report report.service job
         self.assertTrue(self.job(result='exit-code',started='123').startswith('❌'))
     def test_running_not_completed(self):
         self.assertTrue(self.job(active='activating',started='123').startswith('⏳'))
-    def test_camera_default_route_not_accepted(self):
+    def test_network_status_hides_technical_route_details(self):
         text=(ROOT/'scripts/tg-server-control').read_text()
         function=text[text.index('network_status() {'):text.index('\ncase "${1:-}"')]
-        script='''run_status_provider() { :; }
-ip() { echo "192.168.2.3 dev $DEVICE src 192.0.2.1"; }
-status_dir=/nonexistent
-'''+function.replace('[[ -x /usr/local/sbin/tg-vpn-failover-status ]]','[[ -x /nonexistent ]]')+'\nnetwork_status\n'
-        for device,icon in [('eth0','❌'),('ppp20','✅')]:
-            out=subprocess.check_output(['bash','-c',script],env=dict(os.environ,DEVICE=device),text=True)
-            self.assertTrue(out.startswith(icon),out)
+        self.assertNotIn('ip route', function)
+        self.assertNotIn('ppp20', function)
+        self.assertNotIn('eth0', function)
+        self.assertNotIn('--verbose', function)
 
     def test_egg_commands_manage_service_and_autostart_together(self):
         text=(ROOT/'scripts/tg-server-control').read_text()

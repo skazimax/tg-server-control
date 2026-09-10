@@ -10,7 +10,7 @@ run_status_provider() {
     local provider="$1"
     shift
     if [[ -x "$provider" ]]; then
-        timeout --kill-after=2s 30s "$provider" "$@" || printf '❌ %s: ошибка или превышено время ожидания\n' "$(basename "$provider")"
+        timeout --kill-after=2s 30s "$provider" "$@" || printf '⚠️ Данные временно недоступны\n'
     fi
 }
 
@@ -24,19 +24,22 @@ run_all_statuses() {
 water_run() {
     local period="$1"
     local unit="sonar-water-report@${period}.service"
-    local alias="Отчёт · день"
-    [[ "$period" == weekly ]] && alias="Отчёт · неделя"
-    systemctl reset-failed "$unit" || true
-    systemctl start "$unit"
-    unit_icon "$alias" "$unit" job
+    report_run "$unit"
 }
 
 report_run() {
     local unit="$1"
-    local alias="$2"
     systemctl reset-failed "$unit" || true
-    systemctl start "$unit"
-    unit_icon "$alias" "$unit" job
+    if systemctl start "$unit" >/dev/null 2>&1; then
+        printf 'Отчёт отправлен\n'
+        return
+    fi
+    if journalctl -u "$unit" -n 30 --no-pager -o cat 2>/dev/null | grep -Eqi 'No valid .*measurements'; then
+        printf 'Нет данных\n'
+    else
+        printf 'Отчёт не сформирован\n'
+    fi
+    return 1
 }
 
 water_toggle() {
@@ -49,21 +52,29 @@ water_toggle() {
 }
 
 water_status() {
-    unit_icon "Отчёты · день" sonar-water-report-daily.timer timer
-    unit_icon "Отчёты · неделя" sonar-water-report-weekly.timer timer
-    unit_icon "Климат · неделя" nest-climate-report.timer timer
-    unit_icon "Отчёт · день" sonar-water-report@daily.service job
-    unit_icon "Отчёт · неделя" sonar-water-report@weekly.service job
-    unit_icon "Климат · отчёт" nest-climate-report.service job
-    timer_next "День" sonar-water-report-daily.timer
-    timer_next "Неделя" sonar-water-report-weekly.timer
-    timer_next "Климат" nest-climate-report.timer
+    timer_schedule "Колодец · сутки" "ежедневно 08:10" sonar-water-report-daily.timer
+    timer_schedule "Колодец · 7 дней" "пн 08:15" sonar-water-report-weekly.timer
+    timer_schedule "Климат · 7 дней" "пн 08:00" nest-climate-report.timer
+}
+
+timer_schedule() {
+    local label="$1"
+    local schedule="$2"
+    local unit="$3"
+    local active icon
+    active=$(systemctl is-active "$unit" 2>/dev/null || true)
+    case "$active" in
+        active) icon='✅' ;;
+        inactive) icon='⏸' ;;
+        *) icon='❌' ;;
+    esac
+    printf '%s %s: %s\n' "$icon" "$label" "$schedule"
 }
 
 nest_temperature() {
     local config=/etc/tg-server-control/nest.env
     if [[ ! -r "$config" ]]; then
-        printf '⚠️ Дом, 1 этаж: нет данных\n'
+        printf '⚠️ 1 этаж: нет данных\n'
         return
     fi
     set -a
@@ -76,8 +87,8 @@ nest_temperature() {
 nest_climate_status() {
     local config=/etc/tg-server-control/well.env
     if [[ ! -r "$config" ]]; then
-        printf '⚠️ Дом, 1 этаж: нет данных\n'
-        printf '⚠️ Дом, 2 этаж: нет данных\n'
+        printf '⚠️ 1 этаж: нет данных\n'
+        printf '⚠️ 2 этаж: нет данных\n'
         return
     fi
     set -a
@@ -90,20 +101,13 @@ nest_climate_status() {
 
 network_status() {
     if [[ -x /usr/local/sbin/tg-vpn-failover-status ]]; then
-        /usr/local/sbin/tg-vpn-failover-status --verbose
+        /usr/local/sbin/tg-vpn-failover-status
+        /usr/local/sbin/tg-vpn-failover-status --mtproto
     else
         run_status_provider "$status_dir/20-vpn"
+        run_status_provider "$status_dir/25-mtproto"
     fi
     run_status_provider "$status_dir/30-rumyantsevo"
-    local route_device
-    route_device=$(ip route get 192.168.2.3 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i == "dev") {print $(i+1); exit}}')
-    if [[ "$route_device" == ppp20 ]]; then
-        printf '✅ Камера: маршрут через SSTP (%s); доступность камеры не проверялась\n' "$route_device"
-    elif [[ -n "$route_device" ]]; then
-        printf '❌ Камера: маршрут через %s вместо SSTP (ppp20)\n' "$route_device"
-    else
-        printf '❌ Камера: маршрут не найден\n'
-    fi
 }
 
 case "${1:-}" in
@@ -125,14 +129,14 @@ case "${1:-}" in
     water-weekly-toggle) water_toggle weekly ;;
     water-daily) water_run daily ;;
     water-weekly) water_run weekly ;;
-    climate-weekly) report_run nest-climate-report.service "Климат · неделя" ;;
+    climate-weekly) report_run nest-climate-report.service ;;
     well-level) run_status_provider "$status_dir/40-well" level ;;
     nest-temperature) nest_temperature ;;
     nest-climate-status) nest_climate_status ;;
     network-status) network_status ;;
     sstp-restart)
         systemctl restart egg-cam-sstp.service
-        unit_icon "Румянцево(SSTP)" egg-cam-sstp.service
+        unit_icon "Румянцево" egg-cam-sstp.service
         ;;
     vpn-switch)
         /usr/local/sbin/mtproxy-failover --force-switch

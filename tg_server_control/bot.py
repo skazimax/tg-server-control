@@ -20,6 +20,8 @@ LOGGER = logging.getLogger(__name__)
 COMMANDS: dict[str, tuple[str | None, str]] = {
     "/status": ("status", "Статус"),
     "/rumyantsevo": ("rumyantsevo-status", "Румянцево"),
+    "/reports": ("water-status", "Отчёты"),
+    "/network": ("network-status", "Сеть"),
     "/egg_on": ("egg-on", "Яйца: включение"),
     "/egg_off": ("egg-off", "Яйца: выключение"),
     "/egg_restart": ("egg-restart", "Яйца: перезапуск"),
@@ -30,7 +32,7 @@ COMMANDS: dict[str, tuple[str | None, str]] = {
     "/water_weekly": ("water-weekly", "Колодец: недельный отчёт"),
     "/climate_weekly": ("climate-weekly", "Климат: недельный отчёт"),
     "/network_status": ("network-status", "Сеть"),
-    "/sstp_restart": ("sstp-restart", "Румянцево(SSTP): перезапуск"),
+    "/sstp_restart": ("sstp-restart", "Румянцево: переподключение"),
     "/vpn_switch": ("vpn-switch", "VPN: переключение"),
     # Compatibility with buttons already present in older bot messages.
     "/adguard_restart": ("vpn-switch", "VPN: переключение"),
@@ -39,40 +41,20 @@ COMMANDS: dict[str, tuple[str | None, str]] = {
 }
 
 TELEGRAM_COMMAND_DESCRIPTIONS: dict[str, str] = {
-    "/status": "Состояние всех компонентов",
-    "/rumyantsevo": "Температура, влажность и колодец",
-    "/egg_on": "Запустить мониторинг яиц",
-    "/egg_off": "Остановить мониторинг яиц",
-    "/egg_restart": "Перезапустить мониторинг яиц",
-    "/water_status": "Расписание и ручная отправка отчётов",
-    "/water_daily_toggle": "Включить или выключить дневной отчёт",
-    "/water_weekly_toggle": "Включить или выключить недельный отчёт",
-    "/water_daily": "Отправить дневной отчёт",
-    "/water_weekly": "Отправить недельный отчёт",
-    "/climate_weekly": "Отправить недельный отчёт по климату",
-    "/network_status": "Состояние сети и VPN",
-    "/sstp_restart": "Переподключить Румянцево(SSTP)",
-    "/vpn_switch": "Переключить AdGuard и SKIPP",
+    "/status": "Общее состояние",
+    "/rumyantsevo": "Показатели дома",
+    "/reports": "Отчёты и расписание",
+    "/network": "VPN и подключения",
     "/help": "Список команд",
 }
 
 
 HELP_TEXT = """Управление домашним сервером
 
-/status — состояние всех компонентов
-/rumyantsevo — показатели дома в Румянцево
-/egg_on — запустить мониторинг яиц
-/egg_off — остановить мониторинг яиц
-/egg_restart — перезапустить мониторинг яиц
-/water_status — расписание и ручная отправка отчётов
-/water_daily_toggle — включить или выключить дневной отчёт
-/water_weekly_toggle — включить или выключить недельный отчёт
-/water_daily — отправить дневной отчёт сейчас
-/water_weekly — отправить недельный отчёт сейчас
-/climate_weekly — отправить недельный отчёт по климату
-/network_status — состояние VPN, MTProto, failover, SSTP и маршрута до камеры
-/sstp_restart — переподключить Румянцево(SSTP)
-/vpn_switch — переключить AdGuard и SKIPP
+/status — общее состояние
+/rumyantsevo — показатели дома
+/reports — отчёты и расписание
+/network — VPN и подключения
 /help — показать эту справку
 """
 
@@ -102,34 +84,48 @@ def command_keyboard() -> dict[str, Any]:
     return {
         "inline_keyboard": [
             [
-                {"text": "Общий статус", "callback_data": "/status"},
-                {"text": "Статус сети", "callback_data": "/network_status"},
-            ],
-            [
-                {"text": "Запустить яйца", "callback_data": "/egg_on"},
-                {"text": "Остановить яйца", "callback_data": "/egg_off"},
-            ],
-            [
-                {"text": "Отчёты", "callback_data": "/water_status"},
+                {"text": "Статус", "callback_data": "/status"},
                 {"text": "Румянцево", "callback_data": "/rumyantsevo"},
+            ],
+            [
+                {"text": "Отчёты", "callback_data": "/reports"},
+                {"text": "Сеть", "callback_data": "/network"},
             ],
         ]
     }
 
 
-def water_report_keyboard() -> dict[str, Any]:
+def status_keyboard(status: str) -> dict[str, Any]:
+    keyboard = command_keyboard()
+    if "⏹ Яйца" in status:
+        keyboard["inline_keyboard"].append(
+            [{"text": "Включить яйца", "callback_data": "/egg_on"}]
+        )
+    else:
+        keyboard["inline_keyboard"].append(
+            [
+                {"text": "Выключить яйца", "callback_data": "/egg_off"},
+                {"text": "Перезапустить", "callback_data": "/egg_restart"},
+            ]
+        )
+    return keyboard
+
+
+def water_report_keyboard(status: str = "") -> dict[str, Any]:
+    daily_action = "Отключить · сутки" if "✅ Колодец · сутки" in status else "Включить · сутки"
+    weekly_action = "Отключить · 7 дней" if "✅ Колодец · 7 дней" in status else "Включить · 7 дней"
     return {
         "inline_keyboard": [
             [
-                {"text": "День: вкл/выкл", "callback_data": "/water_daily_toggle"},
-                {"text": "Неделя: вкл/выкл", "callback_data": "/water_weekly_toggle"},
+                {"text": daily_action, "callback_data": "/water_daily_toggle"},
+                {"text": weekly_action, "callback_data": "/water_weekly_toggle"},
             ],
             [
-                {"text": "Отправить день", "callback_data": "/water_daily"},
-                {"text": "Отправить неделю", "callback_data": "/water_weekly"},
+                {"text": "Колодец · сутки", "callback_data": "/water_daily"},
+                {"text": "Колодец · 7 дней", "callback_data": "/water_weekly"},
             ],
             [
-                {"text": "Климат · неделя", "callback_data": "/climate_weekly"},
+                {"text": "Климат · 7 дней", "callback_data": "/climate_weekly"},
             ],
             [{"text": "← Назад", "callback_data": "/status"}],
         ]
@@ -150,9 +146,9 @@ def network_keyboard() -> dict[str, Any]:
         "inline_keyboard": [
             [
                 {"text": "Переключить VPN", "callback_data": "/vpn_switch"},
-                {"text": "Перезапустить SSTP", "callback_data": "/sstp_restart"},
+                {"text": "Переподключить Румянцево", "callback_data": "/sstp_restart"},
             ],
-            [{"text": "🔄 Обновить", "callback_data": "/network_status"}],
+            [{"text": "🔄 Обновить", "callback_data": "/network"}],
             [{"text": "← Назад", "callback_data": "/status"}],
         ]
     }
@@ -273,14 +269,47 @@ class ControlBot:
         *,
         keyboard: bool = False,
         reply_markup: dict[str, Any] | None = None,
-    ) -> None:
+    ) -> int | None:
         payload: dict[str, Any] = {"chat_id": chat_id, "text": text}
         if reply_markup is not None:
             payload["reply_markup"] = reply_markup
         elif keyboard:
             payload["reply_markup"] = command_keyboard()
-        self.api("sendMessage", payload)
+        result = self.api("sendMessage", payload)
         self.delivery = "sent"
+        return result.get("message_id") if isinstance(result, dict) else None
+
+    def edit(
+        self,
+        chat_id: int,
+        message_id: int,
+        text: str,
+        reply_markup: dict[str, Any] | None = None,
+    ) -> None:
+        payload: dict[str, Any] = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "text": text,
+        }
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
+        self.api("editMessageText", payload)
+        self.delivery = "sent"
+
+    def deliver(
+        self,
+        chat_id: int,
+        text: str,
+        progress_message_id: int | None,
+        reply_markup: dict[str, Any] | None = None,
+    ) -> None:
+        if progress_message_id is not None:
+            try:
+                self.edit(chat_id, progress_message_id, text, reply_markup)
+                return
+            except Exception as exc:
+                LOGGER.warning("progress update failed (%s)", type(exc).__name__)
+        self.send(chat_id, text, reply_markup=reply_markup)
 
     def handle_update(self, update: dict[str, Any]) -> None:
         callback = update.get("callback_query")
@@ -328,14 +357,14 @@ class ControlBot:
             house_climate = (
                 nest_result.output
                 if nest_result.ok
-                else "⚠️ Дом, 1 этаж: нет данных\n"
-                "⚠️ Дом, 2 этаж: нет данных"
+                else "⚠️ 1 этаж: нет данных\n"
+                "⚠️ 2 этаж: нет данных"
             )
             result = self.execute_helper("well-level")
             water_level = (
                 result.output
                 if result.ok
-                else "⚠️ Уровень воды в колодце: нет данных"
+                else "⚠️ Уровень: нет данных"
             )
             self.send(
                 chat_id,
@@ -344,55 +373,68 @@ class ControlBot:
             )
             return
 
+        progress_message_id = None
         if action not in {"status", "water-status", "network-status"}:
             try:
-                self.send(chat_id, f"⏳ {label}…")
+                progress_message_id = self.send(chat_id, f"⏳ {label}…")
             except Exception as exc:
                 LOGGER.warning("progress message failed (%s)", type(exc).__name__)
         result = self.execute_helper(action)
-        water_menu_actions = {
-            "water-status",
-            "water-daily-toggle",
-            "water-weekly-toggle",
-            "climate-weekly",
-        }
+
         if action in {"water-daily-toggle", "water-weekly-toggle"}:
             status_result = self.execute_helper("water-status")
             result = HelperResult(
                 result.ok and status_result.ok,
-                status_result.output if result.ok else result.output + "\n\n" + status_result.output,
+                status_result.output if result.ok else result.output,
                 result.uncertain is True,
             )
-        network_menu_actions = {
-            "network-status",
-            "sstp-restart",
-            "vpn-switch",
-        }
         if action in {"sstp-restart", "vpn-switch"}:
             status_result = self.execute_helper("network-status")
             result = HelperResult(
                 result.ok and status_result.ok,
-                status_result.output if result.ok else result.output + "\n\n" + status_result.output,
+                status_result.output if result.ok else result.output,
                 result.uncertain is True,
             )
-        icon = "⚠️" if result.uncertain is True else "✅" if result.ok else "❌"
-        if action in {"status", "water-status", "network-status"} and result.ok:
-            icon = "ℹ️"
-        self.send(
-            chat_id,
-            f"{icon} {label}\n\n{result.output}",
-            keyboard=(
-                action not in water_menu_actions
-                and action not in network_menu_actions
-            ),
-            reply_markup=(
-                water_report_keyboard()
-                if action in water_menu_actions
-                else network_keyboard()
-                if action in network_menu_actions
-                else None
-            ),
-        )
+        if action in {"egg-on", "egg-off", "egg-restart"}:
+            status_result = self.execute_helper("status")
+            result = HelperResult(
+                result.ok and status_result.ok,
+                status_result.output if result.ok else result.output,
+                result.uncertain is True,
+            )
+
+        report_status = ""
+        if result.ok and action in {"water-daily", "water-weekly", "climate-weekly"}:
+            status_result = self.execute_helper("water-status")
+            if status_result.ok:
+                report_status = status_result.output
+
+        if not result.ok:
+            if result.uncertain is True:
+                text = "⚠️ Результат пока неизвестен. Проверьте статус."
+            elif action in {"water-daily", "water-weekly", "climate-weekly"} and "нет данных" in result.output.casefold():
+                text = "⚠️ Отчёт не сформирован: нет данных"
+            else:
+                text = "❌ Не удалось выполнить команду"
+            self.deliver(chat_id, text, progress_message_id, command_keyboard())
+            return
+
+        if action == "status" or action in {"egg-on", "egg-off", "egg-restart"}:
+            text = f"Статус\n\n{result.output}"
+            markup = status_keyboard(result.output)
+        elif action == "water-status" or action in {"water-daily-toggle", "water-weekly-toggle"}:
+            text = f"Отчёты\n\n{result.output}"
+            markup = water_report_keyboard(result.output)
+        elif action == "network-status" or action in {"sstp-restart", "vpn-switch"}:
+            text = f"Сеть\n\n{result.output}"
+            markup = network_keyboard()
+        elif action in {"water-daily", "water-weekly", "climate-weekly"}:
+            text = "✅ Отчёт отправлен"
+            markup = water_report_keyboard(report_status)
+        else:
+            text = "✅ Готово"
+            markup = command_keyboard()
+        self.deliver(chat_id, text, progress_message_id, markup)
 
     def poll_once(self) -> None:
         payload: dict[str, Any] = {

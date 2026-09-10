@@ -56,11 +56,11 @@ def main() -> int:
         value = None
     if len(sys.argv) > 1 and sys.argv[1] == "level":
         if value is None:
-            print("⚠️ Уровень воды в колодце: нет данных")
+            print("⚠️ Уровень: нет данных")
         else:
-            print(f"💧 Уровень воды в колодце: {value} см")
+            print(f"💧 Уровень: {value} см")
     else:
-        print("✅ Колодец" if value is not None else "❌ Колодец")
+        print("✅ Колодец" if value is not None else "⚠️ Колодец: нет данных")
     return 0
 
 

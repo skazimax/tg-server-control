@@ -26,10 +26,10 @@ def safe_table_name(value: str) -> str:
 
 def format_reading(floor: str, row: object | None) -> str:
     if row is None or not bool(row.online):
-        return f"⚠️ Дом, {floor} этаж: нет данных"
+        return f"⚠️ {floor} этаж: нет данных"
     return (
-        f"🌡 Дом, {floor} этаж: {float(row.temperature_c):.1f} °C"
-        f" · влажность {int(row.humidity_percent)}%"
+        f"🌡 {floor} этаж: {float(row.temperature_c):.1f} °C"
+        f" · {int(row.humidity_percent)}%"
     )
 
 

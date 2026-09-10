@@ -14,6 +14,7 @@ with patch.dict("sys.modules", {"requests": Mock()}):
         parse_admin_user_ids,
         rumyantsevo_keyboard,
         rumyantsevo_status_text,
+        status_keyboard,
         telegram_command_menu,
         water_report_keyboard,
     )
@@ -29,21 +30,36 @@ class BotConfigurationTest(unittest.TestCase):
             for row in command_keyboard()["inline_keyboard"]
             for button in row
         }
-        self.assertIn("/status", callbacks)
-        self.assertIn("/water_status", callbacks)
-        self.assertIn("/rumyantsevo", callbacks)
+        self.assertEqual(
+            callbacks,
+            {"/status", "/rumyantsevo", "/reports", "/network"},
+        )
+
+    def test_status_keyboard_has_contextual_egg_action(self) -> None:
+        stopped = status_keyboard("⏹ Яйца")
+        active = status_keyboard("✅ Яйца")
+        stopped_callbacks = {
+            button["callback_data"] for row in stopped["inline_keyboard"] for button in row
+        }
+        active_callbacks = {
+            button["callback_data"] for row in active["inline_keyboard"] for button in row
+        }
+        self.assertIn("/egg_on", stopped_callbacks)
+        self.assertNotIn("/egg_off", stopped_callbacks)
+        self.assertIn("/egg_off", active_callbacks)
+        self.assertIn("/egg_restart", active_callbacks)
 
     def test_rumyantsevo_screen_has_all_placeholder_statuses(self) -> None:
         text = rumyantsevo_status_text(
-            "⚠️ Дом, 1 этаж: нет данных\n"
-            "⚠️ Дом, 2 этаж: нет данных",
-            "⚠️ Уровень воды в колодце: нет данных"
+            "⚠️ 1 этаж: нет данных\n"
+            "⚠️ 2 этаж: нет данных",
+            "⚠️ Уровень: нет данных"
         )
-        self.assertIn("Дом, 1 этаж: нет данных", text)
-        self.assertIn("Дом, 2 этаж: нет данных", text)
+        self.assertIn("1 этаж: нет данных", text)
+        self.assertIn("2 этаж: нет данных", text)
         self.assertIn("Улица: нет данных", text)
         self.assertIn("Колодец: нет данных", text)
-        self.assertIn("⚠️ Уровень воды в колодце: нет данных", text)
+        self.assertIn("⚠️ Уровень: нет данных", text)
 
     def test_rumyantsevo_keyboard_has_refresh_and_back(self) -> None:
         callbacks = {
@@ -59,15 +75,15 @@ class BotConfigurationTest(unittest.TestCase):
                 Mock(
                     ok=True,
                     output=(
-                        "🌡 Дом, 1 этаж: 22.5 °C · влажность 51%\n"
-                        "🌡 Дом, 2 этаж: 23.0 °C · влажность 49%"
+                        "🌡 1 этаж: 22.5 °C · 51%\n"
+                        "🌡 2 этаж: 23.0 °C · 49%"
                     ),
                 ),
-                Mock(ok=True, output="💧 Уровень воды в колодце: 123 см"),
+                Mock(ok=True, output="💧 Уровень: 123 см"),
             ]
         )
         bot = ControlBot("token", {123}, helper_runner=helper_runner)
-        bot.send = Mock()
+        bot.send = Mock(return_value=None)
 
         bot.handle_update(
             {
@@ -86,9 +102,9 @@ class BotConfigurationTest(unittest.TestCase):
         bot.send.assert_called_once_with(
             123,
             rumyantsevo_status_text(
-                "🌡 Дом, 1 этаж: 22.5 °C · влажность 51%\n"
-                "🌡 Дом, 2 этаж: 23.0 °C · влажность 49%",
-                "💧 Уровень воды в колодце: 123 см",
+                "🌡 1 этаж: 22.5 °C · 51%\n"
+                "🌡 2 этаж: 23.0 °C · 49%",
+                "💧 Уровень: 123 см",
             ),
             reply_markup=rumyantsevo_keyboard(),
         )
@@ -113,13 +129,19 @@ class BotConfigurationTest(unittest.TestCase):
         }
         self.assertEqual(
             callbacks,
-            {"/vpn_switch", "/sstp_restart", "/network_status", "/status"},
+            {"/vpn_switch", "/sstp_restart", "/network", "/status"},
         )
 
     def test_climate_report_runs_helper_and_returns_to_reports_screen(self) -> None:
-        helper_runner = Mock(return_value=Mock(ok=True, output="✅ Климат · неделя"))
+        report_status = "✅ Колодец · сутки\n✅ Колодец · 7 дней"
+        helper_runner = Mock(
+            side_effect=[
+                Mock(ok=True, output="Отчёт отправлен"),
+                Mock(ok=True, output=report_status),
+            ]
+        )
         bot = ControlBot("token", {123}, helper_runner=helper_runner)
-        bot.send = Mock()
+        bot.send = Mock(return_value=None)
 
         bot.handle_update(
             {
@@ -131,20 +153,22 @@ class BotConfigurationTest(unittest.TestCase):
             }
         )
 
-        helper_runner.assert_called_once_with("climate-weekly")
+        self.assertEqual(
+            helper_runner.call_args_list,
+            [
+                unittest.mock.call("climate-weekly"),
+                unittest.mock.call("water-status"),
+            ],
+        )
         bot.send.assert_called_with(
             123,
-            "✅ Климат: недельный отчёт\n\n✅ Климат · неделя",
-            keyboard=False,
-            reply_markup=water_report_keyboard(),
+            "✅ Отчёт отправлен",
+            reply_markup=water_report_keyboard(report_status),
         )
 
     def test_telegram_menu_covers_commands_except_start(self) -> None:
         menu_commands = {f"/{item['command']}" for item in telegram_command_menu()}
-        self.assertEqual(
-            menu_commands,
-            set(COMMANDS) - {"/start", "/adguard_restart"},
-        )
+        self.assertEqual(menu_commands, {"/status", "/rumyantsevo", "/reports", "/network", "/help"})
 
     def test_vpn_switch_returns_to_network_screen(self) -> None:
         helper_runner = Mock(
@@ -157,7 +181,7 @@ class BotConfigurationTest(unittest.TestCase):
             ]
         )
         bot = ControlBot("token", {123}, helper_runner=helper_runner)
-        bot.send = Mock()
+        bot.send = Mock(return_value=None)
 
         bot.handle_update(
             {
@@ -178,9 +202,7 @@ class BotConfigurationTest(unittest.TestCase):
         )
         bot.send.assert_called_with(
             123,
-            "✅ VPN: переключение\n\n"
-            "✅ VPN: AdGuard\n✅ MTProto\n✅ Failover",
-            keyboard=False,
+            "Сеть\n\n✅ VPN: AdGuard\n✅ MTProto\n✅ Failover",
             reply_markup=network_keyboard(),
         )
 

@@ -3,4 +3,4 @@ set -euo pipefail
 if [[ -x /usr/local/sbin/tg-vpn-failover-status ]]; then
     exec /usr/local/sbin/tg-vpn-failover-status
 fi
-printf '⚠️ VPN: модуль проверок недоступен\n'
+printf '⚠️ VPN: нет данных\n'
