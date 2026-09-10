@@ -35,3 +35,8 @@ status_dir=/nonexistent
         for device,icon in [('eth0','❌'),('ppp20','✅')]:
             out=subprocess.check_output(['bash','-c',script],env=dict(os.environ,DEVICE=device),text=True)
             self.assertTrue(out.startswith(icon),out)
+
+    def test_egg_commands_manage_service_and_autostart_together(self):
+        text=(ROOT/'scripts/tg-server-control').read_text()
+        self.assertIn('systemctl enable --now egg-cam.service', text)
+        self.assertIn('systemctl disable --now egg-cam.service', text)

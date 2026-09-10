@@ -31,6 +31,14 @@ water_run() {
     unit_icon "$alias" "$unit" job
 }
 
+report_run() {
+    local unit="$1"
+    local alias="$2"
+    systemctl reset-failed "$unit" || true
+    systemctl start "$unit"
+    unit_icon "$alias" "$unit" job
+}
+
 water_toggle() {
     local unit="sonar-water-report-${1}.timer"
     if systemctl is-enabled --quiet "$unit"; then
@@ -43,10 +51,13 @@ water_toggle() {
 water_status() {
     unit_icon "Отчёты · день" sonar-water-report-daily.timer timer
     unit_icon "Отчёты · неделя" sonar-water-report-weekly.timer timer
+    unit_icon "Климат · неделя" nest-climate-report.timer timer
     unit_icon "Отчёт · день" sonar-water-report@daily.service job
     unit_icon "Отчёт · неделя" sonar-water-report@weekly.service job
+    unit_icon "Климат · отчёт" nest-climate-report.service job
     timer_next "День" sonar-water-report-daily.timer
     timer_next "Неделя" sonar-water-report-weekly.timer
+    timer_next "Климат" nest-climate-report.timer
 }
 
 nest_temperature() {
@@ -98,11 +109,11 @@ network_status() {
 case "${1:-}" in
     status) run_all_statuses ;;
     egg-on)
-        systemctl start egg-cam.service
+        systemctl enable --now egg-cam.service
         unit_icon "Яйца" egg-cam.service
         ;;
     egg-off)
-        systemctl stop egg-cam.service
+        systemctl disable --now egg-cam.service
         unit_icon "Яйца" egg-cam.service
         ;;
     egg-restart)
@@ -114,6 +125,7 @@ case "${1:-}" in
     water-weekly-toggle) water_toggle weekly ;;
     water-daily) water_run daily ;;
     water-weekly) water_run weekly ;;
+    climate-weekly) report_run nest-climate-report.service "Климат · неделя" ;;
     well-level) run_status_provider "$status_dir/40-well" level ;;
     nest-temperature) nest_temperature ;;
     nest-climate-status) nest_climate_status ;;

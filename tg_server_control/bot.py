@@ -23,11 +23,12 @@ COMMANDS: dict[str, tuple[str | None, str]] = {
     "/egg_on": ("egg-on", "Яйца: включение"),
     "/egg_off": ("egg-off", "Яйца: выключение"),
     "/egg_restart": ("egg-restart", "Яйца: перезапуск"),
-    "/water_status": ("water-status", "Отчёты колодца"),
+    "/water_status": ("water-status", "Отчёты"),
     "/water_daily_toggle": ("water-daily-toggle", "Расписание: день"),
     "/water_weekly_toggle": ("water-weekly-toggle", "Расписание: неделя"),
     "/water_daily": ("water-daily", "Колодец: дневной отчёт"),
     "/water_weekly": ("water-weekly", "Колодец: недельный отчёт"),
+    "/climate_weekly": ("climate-weekly", "Климат: недельный отчёт"),
     "/network_status": ("network-status", "Сеть"),
     "/sstp_restart": ("sstp-restart", "Румянцево(SSTP): перезапуск"),
     "/vpn_switch": ("vpn-switch", "VPN: переключение"),
@@ -43,11 +44,12 @@ TELEGRAM_COMMAND_DESCRIPTIONS: dict[str, str] = {
     "/egg_on": "Запустить мониторинг яиц",
     "/egg_off": "Остановить мониторинг яиц",
     "/egg_restart": "Перезапустить мониторинг яиц",
-    "/water_status": "Расписание отчётов колодца",
+    "/water_status": "Расписание и ручная отправка отчётов",
     "/water_daily_toggle": "Включить или выключить дневной отчёт",
     "/water_weekly_toggle": "Включить или выключить недельный отчёт",
     "/water_daily": "Отправить дневной отчёт",
     "/water_weekly": "Отправить недельный отчёт",
+    "/climate_weekly": "Отправить недельный отчёт по климату",
     "/network_status": "Состояние сети и VPN",
     "/sstp_restart": "Переподключить Румянцево(SSTP)",
     "/vpn_switch": "Переключить AdGuard и SKIPP",
@@ -62,11 +64,12 @@ HELP_TEXT = """Управление домашним сервером
 /egg_on — запустить мониторинг яиц
 /egg_off — остановить мониторинг яиц
 /egg_restart — перезапустить мониторинг яиц
-/water_status — расписание и ручная отправка отчётов колодца
+/water_status — расписание и ручная отправка отчётов
 /water_daily_toggle — включить или выключить дневной отчёт
 /water_weekly_toggle — включить или выключить недельный отчёт
 /water_daily — отправить дневной отчёт сейчас
 /water_weekly — отправить недельный отчёт сейчас
+/climate_weekly — отправить недельный отчёт по климату
 /network_status — состояние VPN, MTProto, failover, SSTP и маршрута до камеры
 /sstp_restart — переподключить Румянцево(SSTP)
 /vpn_switch — переключить AdGuard и SKIPP
@@ -107,7 +110,7 @@ def command_keyboard() -> dict[str, Any]:
                 {"text": "Остановить яйца", "callback_data": "/egg_off"},
             ],
             [
-                {"text": "Отчёты колодца", "callback_data": "/water_status"},
+                {"text": "Отчёты", "callback_data": "/water_status"},
                 {"text": "Румянцево", "callback_data": "/rumyantsevo"},
             ],
         ]
@@ -124,6 +127,9 @@ def water_report_keyboard() -> dict[str, Any]:
             [
                 {"text": "Отправить день", "callback_data": "/water_daily"},
                 {"text": "Отправить неделю", "callback_data": "/water_weekly"},
+            ],
+            [
+                {"text": "Климат · неделя", "callback_data": "/climate_weekly"},
             ],
             [{"text": "← Назад", "callback_data": "/status"}],
         ]
@@ -348,6 +354,7 @@ class ControlBot:
             "water-status",
             "water-daily-toggle",
             "water-weekly-toggle",
+            "climate-weekly",
         }
         if action in {"water-daily-toggle", "water-weekly-toggle"}:
             status_result = self.execute_helper("water-status")

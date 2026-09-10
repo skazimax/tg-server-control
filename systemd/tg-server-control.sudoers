@@ -12,6 +12,7 @@ tg-server-control ALL=(root) NOPASSWD: NOSETENV: \
     /usr/local/sbin/tg-server-control water-weekly-toggle, \
     /usr/local/sbin/tg-server-control water-daily, \
     /usr/local/sbin/tg-server-control water-weekly, \
+    /usr/local/sbin/tg-server-control climate-weekly, \
     /usr/local/sbin/tg-server-control egg-on, \
     /usr/local/sbin/tg-server-control egg-off, \
     /usr/local/sbin/tg-server-control egg-restart, \

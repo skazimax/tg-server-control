@@ -101,6 +101,9 @@ class BotConfigurationTest(unittest.TestCase):
         }
         self.assertIn("/water_daily_toggle", callbacks)
         self.assertIn("/water_weekly_toggle", callbacks)
+        self.assertIn("/water_daily", callbacks)
+        self.assertIn("/water_weekly", callbacks)
+        self.assertIn("/climate_weekly", callbacks)
 
     def test_network_keyboard_has_current_actions(self) -> None:
         callbacks = {
@@ -111,6 +114,29 @@ class BotConfigurationTest(unittest.TestCase):
         self.assertEqual(
             callbacks,
             {"/vpn_switch", "/sstp_restart", "/network_status", "/status"},
+        )
+
+    def test_climate_report_runs_helper_and_returns_to_reports_screen(self) -> None:
+        helper_runner = Mock(return_value=Mock(ok=True, output="✅ Климат · неделя"))
+        bot = ControlBot("token", {123}, helper_runner=helper_runner)
+        bot.send = Mock()
+
+        bot.handle_update(
+            {
+                "message": {
+                    "from": {"id": 123},
+                    "chat": {"id": 123, "type": "private"},
+                    "text": "/climate_weekly",
+                }
+            }
+        )
+
+        helper_runner.assert_called_once_with("climate-weekly")
+        bot.send.assert_called_with(
+            123,
+            "✅ Климат: недельный отчёт\n\n✅ Климат · неделя",
+            keyboard=False,
+            reply_markup=water_report_keyboard(),
         )
 
     def test_telegram_menu_covers_commands_except_start(self) -> None:
