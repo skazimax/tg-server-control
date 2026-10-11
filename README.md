@@ -41,6 +41,8 @@ status-провайдеров.
 - `/etc/tg-server-control/bot.env` — Telegram token, список администраторов и
   путь к offset; файл не хранится в Git;
 - `/etc/tg-server-control/well.env` — настройки проверки данных колодца;
+- `/etc/tg-server-control/control.env` — необязательные имена units хоста
+  (`SSTP_UNIT`, по умолчанию `egg-cam-sstp.service`); читается helper и провайдерами;
 - `/etc/tg-server-control/status.d` — установленные status-провайдеры;
 - `/var/lib/tg-server-control/update_offset` — последний обработанный update.
 - `/etc/tg-server-control/ydb-sa-key.json` — отдельная копия ключа чтения YDB,

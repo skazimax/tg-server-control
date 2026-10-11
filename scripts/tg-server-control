@@ -135,8 +135,8 @@ case "${1:-}" in
     nest-climate-status) nest_climate_status ;;
     network-status) network_status ;;
     sstp-restart)
-        systemctl restart egg-cam-sstp.service
-        unit_icon "Румянцево" egg-cam-sstp.service
+        systemctl restart "$SSTP_UNIT"
+        unit_icon "Румянцево" "$SSTP_UNIT"
         ;;
     vpn-switch)
         /usr/local/sbin/mtproxy-failover --force-switch
