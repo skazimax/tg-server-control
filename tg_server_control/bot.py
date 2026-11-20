@@ -32,7 +32,7 @@ COMMANDS: dict[str, tuple[str | None, str]] = {
     "/water_weekly": ("water-weekly", "Колодец: недельный отчёт"),
     "/climate_weekly": ("climate-weekly", "Климат: недельный отчёт"),
     "/network_status": ("network-status", "Сеть"),
-    "/sstp_restart": ("sstp-restart", "Румянцево: переподключение"),
+    "/sstp_restart": ("sstp-restart", "Туннель до дома: переподключение"),
     "/vpn_switch": ("vpn-switch", "VPN: переключение"),
     # Compatibility with buttons already present in older bot messages.
     "/adguard_restart": ("vpn-switch", "VPN: переключение"),
@@ -146,7 +146,7 @@ def network_keyboard() -> dict[str, Any]:
         "inline_keyboard": [
             [
                 {"text": "Переключить VPN", "callback_data": "/vpn_switch"},
-                {"text": "Переподключить Румянцево", "callback_data": "/sstp_restart"},
+                {"text": "Переподключить туннель до дома", "callback_data": "/sstp_restart"},
             ],
             [{"text": "🔄 Обновить", "callback_data": "/network"}],
             [{"text": "← Назад", "callback_data": "/status"}],

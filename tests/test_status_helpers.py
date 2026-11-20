@@ -33,15 +33,15 @@ unit_icon report report.service job
             lib.write(source); lib.flush()
             script='source "$STATUS_LIB"; printf "%s" "$SSTP_UNIT"'
             return subprocess.check_output(['bash','-c',script],env=dict(os.environ,STATUS_LIB=lib.name),text=True)
-    def test_sstp_unit_defaults_to_legacy_name(self):
-        self.assertEqual(self.sstp_unit(), 'egg-cam-sstp.service')
+    def test_sstp_unit_defaults_to_home_tunnel(self):
+        self.assertEqual(self.sstp_unit(), 'sstp-home.service')
     def test_sstp_unit_from_control_env(self):
         import tempfile
         with tempfile.NamedTemporaryFile('w', suffix='.env') as config:
             config.write('SSTP_UNIT=sstp-home.service\n'); config.flush()
             self.assertEqual(self.sstp_unit(config.name), 'sstp-home.service')
     def test_rumyantsevo_uses_configured_sstp_unit(self):
-        for path in ['status.d/30-rumyantsevo', 'scripts/tg-server-control']:
+        for path in ['status.d/30-home-tunnel', 'scripts/tg-server-control']:
             self.assertNotIn('egg-cam-sstp', (ROOT/path).read_text())
     def test_network_status_hides_technical_route_details(self):
         text=(ROOT/'scripts/tg-server-control').read_text()

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Host-specific unit names; /etc/tg-server-control/control.env (root-owned) overrides them.
-SSTP_UNIT=egg-cam-sstp.service
+SSTP_UNIT=sstp-home.service
 if [[ -r /etc/tg-server-control/control.env ]]; then
     source /etc/tg-server-control/control.env
 fi

@@ -107,7 +107,7 @@ network_status() {
         run_status_provider "$status_dir/20-vpn"
         run_status_provider "$status_dir/25-mtproto"
     fi
-    run_status_provider "$status_dir/30-rumyantsevo"
+    run_status_provider "$status_dir/30-home-tunnel"
 }
 
 case "${1:-}" in
@@ -136,7 +136,7 @@ case "${1:-}" in
     network-status) network_status ;;
     sstp-restart)
         systemctl restart "$SSTP_UNIT"
-        unit_icon "Румянцево" "$SSTP_UNIT"
+        unit_icon "Туннель до дома" "$SSTP_UNIT"
         ;;
     vpn-switch)
         /usr/local/sbin/mtproxy-failover --force-switch

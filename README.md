@@ -42,7 +42,7 @@ status-провайдеров.
   путь к offset; файл не хранится в Git;
 - `/etc/tg-server-control/well.env` — настройки проверки данных колодца;
 - `/etc/tg-server-control/control.env` — необязательные имена units хоста
-  (`SSTP_UNIT`, по умолчанию `egg-cam-sstp.service`); читается helper и провайдерами;
+  (`SSTP_UNIT`, по умолчанию `sstp-home.service`); читается helper и провайдерами;
 - `/etc/tg-server-control/status.d` — установленные status-провайдеры;
 - `/var/lib/tg-server-control/update_offset` — последний обработанный update.
 - `/etc/tg-server-control/ydb-sa-key.json` — отдельная копия ключа чтения YDB,
@@ -61,7 +61,7 @@ Sudo разрешает только перечисленные одноаргу
 
 ### Сетевые команды
 
-Экран «Сеть» показывает только текущий VPN, MTProto и связь с Румянцево.
+Экран «Сеть» показывает только текущий VPN, MTProto и SSTP-туннель до дома.
 Порты, имена интерфейсов, возраст проверок и внутренние компоненты в Telegram не
 выводятся. Кнопка «Переключить VPN» вручную
 меняет активный upstream `AdGuard → SKIPP(VLESS)` или

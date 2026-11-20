@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source /usr/local/lib/tg-server-control/status-common.sh
-unit_icon "Румянцево" "$SSTP_UNIT"
+unit_icon "Туннель до дома" "$SSTP_UNIT"
